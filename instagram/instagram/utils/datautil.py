@@ -8,6 +8,7 @@ from ..spiders.constantant import *
 from .jsonutil import jsonHandler
 from .fileutil import fileHandler
 
+
 class dataHandler:
     def savedata(self,edges):
         for edge in edges:

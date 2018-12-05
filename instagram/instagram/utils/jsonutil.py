@@ -11,8 +11,11 @@ class jsonHandler:
             response = requests.get(url, headers=headers, timeout=10)
             if response.status_code == 200:
                 return response.json()
+            elif response.status_code == 429:
+                time.sleep(60 + float(random.randint(1, 4000))/100)
+                return self.get_json(url)
             else:
-                print('请求网页json错误, 错误状态码：', response.status_code)
+                print('ZJW : net ERROR：', response.status_code)
         except Exception as e:
             print(e)
             time.sleep(60 + float(random.randint(1, 4000))/100)
@@ -24,7 +27,7 @@ class jsonHandler:
             if response.status_code == 200:
                 return response
             else:
-                print('请求网页json错误, 错误状态码：', response.status_code)
+                print('ZJW : net ERROR：', response.status_code)
         except Exception as e:
             print(e)
             time.sleep(60 + float(random.randint(1, 4000))/100)

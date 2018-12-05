@@ -10,13 +10,16 @@ from ..utils.datautil import dataHandler
 from ..items import InstagramItem
 from scrapy.http.request import Request
 
-class InsSpider(scrapy.Spider):
-    name = 'ins'
+class n_p_Spider(scrapy.Spider):
+    name = 'ins_simple'
     user_id = ''
     user_name = ''
     Spide_num = 0
     account = ''
     count = 0
+    # start_urls = [
+    #     'https://www.instagram.com/giuliogroebert/',
+    # ]
 
     def start_requests(self):
         print('---------------start_requests----------------------')
@@ -32,6 +35,7 @@ class InsSpider(scrapy.Spider):
         self.Spide_num = int(input("How many?  "))
         self.account = input("Enter Account: ")
         self.count = 0
+        # fileHandler().existfolder()    
 
     def parse(self, response):
         print('=================' + response.url + '====================')
@@ -39,7 +43,6 @@ class InsSpider(scrapy.Spider):
         url = REQUEST_FOLLOWERS_URL.format(self.user_id) 
         for i in self.parse_followers(url):
             yield i
-        
 
     def parse_portrait(self, response):
         js = response.selector.xpath('//meta[@property="og:image"]/@content').extract()
@@ -52,17 +55,21 @@ class InsSpider(scrapy.Spider):
         end_cursor = js_data['data']['user']['edge_followed_by']['page_info']['end_cursor']
         next_page = js_data['data']['user']['edge_followed_by']['page_info']['has_next_page']
 
-        if len(edges) == 0:
-            return
         for edge in edges:
-            if self.count >= self.Spide_num:
-                break
             self.count+=1
+            if self.count > self.Spide_num:
+                break
+            it = InstagramItem()
+            href = edge['node']['profile_pic_url']
             name = edge['node']['username']
-            url = BEGIN_URL.format(name) 
-            yield Request(url,callback=self.parse_profile)
+            it['name_'] = name
+            it['id_'] = edge['node']['id']
+            it['portrait_url_'] = href
+            yield it
 
-        while next_page and self.count < self.Spide_num:
+        while next_page:
+            if self.count > self.Spide_num:
+                break
             url_next = REQUEST_NEXT_FOLLOWERS_URL.format(self.user_id,end_cursor)
             js_data = jsonHandler().get_json(url_next)
 
@@ -71,13 +78,16 @@ class InsSpider(scrapy.Spider):
             next_page = js_data['data']['user']['edge_followed_by']['page_info']['has_next_page']     
 
             for edge in edges:
-                
-                if self.count >= self.Spide_num:
-                    break
                 self.count+=1
+                if self.count > self.Spide_num:
+                    break
+                it = InstagramItem()
+                href = edge['node']['profile_pic_url']
                 name = edge['node']['username']
-                url = BEGIN_URL.format(name) 
-                yield Request(url,callback=self.parse_profile) 
+                it['name_'] = name
+                it['id_'] = edge['node']['id']
+                it['portrait_url_'] = href
+                yield it  
 
         if next_page == False and self.count < self.Spide_num:
             url = BEGIN_URL.format(name)
@@ -85,29 +95,42 @@ class InsSpider(scrapy.Spider):
        
         print('---------------parse_followers Over----------------------')
 
-    def parse_profile(self, response):
-        print('---------------parse_profile ----------------------')
+    def parse_work_pic(self, response):
         t_img_url = ""
         js = response.selector.xpath('//script[contains(., "window._sharedData")]/text()').extract()
         js = js[0].replace("window._sharedData = ", "")
         jscleaned = js[:-1]
         js_data = json.loads(jscleaned)
-        edges = js_data["entry_data"]["ProfilePage"][0]["graphql"]["user"]["edge_owner_to_timeline_media"]["edges"]
-        for edge in edges:
-            img_url = edge['node']["thumbnail_resources"][0]["src"]
+        imgs = js_data["entry_data"]["ProfilePage"][0]["graphql"]["user"]["edge_owner_to_timeline_media"]["edges"]
+        page_info = js_data["entry_data"]["ProfilePage"][0]["graphql"]["user"]["edge_owner_to_timeline_media"]['page_info']
+        end_cursor = page_info['end_cursor']
+        next_page = page_info['has_next_page']
+        for img in imgs:
+            img_url = img['node']['display_url']
             if img_url:          
-                t_img_url = img_url
-                break
-        item = InstagramItem()
-        item['name_'] = js_data["entry_data"]["ProfilePage"][0]["graphql"]["user"]["username"]
-        item['id_'] = js_data["entry_data"]["ProfilePage"][0]["graphql"]["user"]["id"]
-        profile_pic = js_data["entry_data"]["ProfilePage"][0]["graphql"]["user"]["profile_pic_url"]
-        if profile_pic:
-            item['portrait_url_'] = profile_pic
-        else:
-            item['portrait_url_'] = ''
-        item['img_url_'] = t_img_url
-        yield item
+                t_img_url = t_img_url + img_url + '\n'
+                dataHandler().downloadPortrait(img_url)
+                # item = InstagramItem()
+                # item['img_url_'] = img_url
+                # yield item
+        
+        while next_page:
+            url = REQUEST_NEXT_PIC_URL.format(self.user_id, end_cursor)    
+            js_data = jsonHandler().get_json(url)
+            
+            infos = js_data['data']['user']['edge_owner_to_timeline_media']['edges']
+            end_cursor = js_data['data']['user']['edge_owner_to_timeline_media']['page_info']['end_cursor']
+            next_page = js_data['data']['user']['edge_owner_to_timeline_media']['page_info']['has_next_page']
+            for info in infos:
+                if info['node']['is_video']:
+                    video_url = info['node']['video_url']
+                    if video_url:
+                        t_img_url = t_img_url + video_url + '\n'
+                else:
+                    if info['node']['display_url']:
+                        display_url = info['node']['display_url']
+                        t_img_url = t_img_url + display_url + '\n' 
+        fileHandler().writefile(t_img_url)
     
 
     def getProfile(self , response):

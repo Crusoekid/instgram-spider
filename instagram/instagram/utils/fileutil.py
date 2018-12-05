@@ -5,6 +5,7 @@ from ..spiders.constantant import *
 class fileHandler:
     def existuserfolder(self,username):
         path = SAVE_PHOTO_PATH.format(username)
+        print(path)
         if not os.path.exists(path):
             os.mkdir(path)
         return path

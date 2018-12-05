@@ -13,5 +13,5 @@ class InstagramItem(scrapy.Item):
     name_ = scrapy.Field()
     id_ = scrapy.Field()
     portrait_url_ = scrapy.Field()
-    # img_url_ = scrapy.Field()
+    img_url_ = scrapy.Field()
     pass
